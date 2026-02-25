@@ -1,13 +1,3 @@
-/* ════════════════════════════════════════════════════════
-   AKANEYA — script2.js
-   Includes:
-   - Side menu toggle
-   - Navbar scroll effect
-   - GSAP ScrollTrigger: image zoom on scroll
-   - GSAP ScrollTrigger: Apple-style word-by-word text reveal
-   - Section fade-in reveal
-════════════════════════════════════════════════════════ */
-
 'use strict';
 
 /* ── Side menu toggle ── */
@@ -42,29 +32,33 @@ document.addEventListener('DOMContentLoaded', () => {
     video.play().catch(() => {});
   }
 
-  /* ════════════════════════════════════════════════════
-     GSAP + ScrollTrigger animations
-  ════════════════════════════════════════════════════ */
   gsap.registerPlugin(ScrollTrigger);
 
+  /* ── Performance: use GPU-composited properties only ── */
+  gsap.config({ force3D: true });
+
+  /* ── Batch ScrollTrigger refreshes ── */
+  ScrollTrigger.config({ limitCallbacks: true });
+
   /* ──────────────────────────────────────────────────
-     1. IMAGE ZOOM on scroll — #h1 and #h2
-        Images gently scale up as they scroll through
-        the viewport — smooth, scrub-tied parallax zoom.
+     1. IMAGE ZOOM — #h1 and #h2
   ────────────────────────────────────────────────── */
   ['#h1', '#h2'].forEach((selector, i) => {
     const wrapper = document.querySelector(selector);
     if (!wrapper) return;
 
-    /* Fade + drift in on first entry */
+    /* Pre-promote to its own layer */
+    wrapper.style.willChange = 'transform, opacity';
+
     gsap.fromTo(wrapper,
-      { opacity: 0, y: 50 },
+      { opacity: 0, y: 40 },
       {
         opacity: 1,
         y: 0,
-        duration: 1.2,
+        duration: 1.0,
         ease: 'power2.out',
-        delay: i * 0.2,
+        delay: i * 0.15,
+        force3D: true,
         scrollTrigger: {
           trigger: wrapper,
           start: 'top 88%',
@@ -73,17 +67,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     );
 
-    /* Continuous zoom tied to scroll position */
     gsap.fromTo(wrapper,
-      { scale: 1.0, transformOrigin: 'center center' },
+      { scale: 1.0 },
       {
-        scale: 1.1,
+        scale: 1.08,
         ease: 'none',
+        force3D: true,
         scrollTrigger: {
           trigger: wrapper,
           start: 'top bottom',
           end:   'bottom top',
-          scrub: 1.8,   /* Higher = smoother lag behind scroll */
+          scrub: 2.5,
+          invalidateOnRefresh: true,
         }
       }
     );
@@ -91,14 +86,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ──────────────────────────────────────────────────
      2. APPLE-STYLE TEXT REVEAL
-        Words fade in one-by-one as you scroll —
-        like Apple's product pages.
+        REMOVED blur() — replaced with y + opacity only.
+        blur() triggers layout/paint on every frame = main lag source.
   ────────────────────────────────────────────────── */
   function splitWords(el) {
     const raw   = el.innerText;
     const words = raw.split(' ');
     el.innerHTML = words
-      .map(w => `<span class="gsap-word" style="display:inline-block; will-change:opacity,transform;">${w}</span>`)
+      .map(w => `<span class="gsap-word" style="display:inline-block;will-change:opacity,transform;">${w}</span>`)
       .join(' ');
     return el.querySelectorAll('.gsap-word');
   }
@@ -107,20 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const words = splitWords(para);
 
     gsap.fromTo(words,
-      {
-        opacity: 0.06,
-        y: 16,
-        filter: 'blur(3px)',
-      },
+      { opacity: 0.05, y: 14 },       /* ← no blur here */
       {
         opacity: 1,
         y: 0,
-        filter: 'blur(0px)',
         ease: 'power2.out',
-        stagger: {
-          each: 0.03,
-          from: 'start',
-        },
+        force3D: true,
+        stagger: { each: 0.025, from: 'start' },
         scrollTrigger: {
           trigger: para,
           start: 'top 82%',
@@ -132,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* ──────────────────────────────────────────────────
-     3. SECTION LABEL — kanji slides up, subtitle expands letter-spacing
+     3. SECTION LABEL
   ────────────────────────────────────────────────── */
   document.querySelectorAll('.section-label').forEach((label) => {
     const kanji    = label.querySelector('.kanji-small');
@@ -140,11 +128,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (kanji) {
       gsap.fromTo(kanji,
-        { opacity: 0, y: 30, skewY: 4 },
+        { opacity: 0, y: 28 },
         {
-          opacity: 1, y: 0, skewY: 0,
-          duration: 1.0,
+          opacity: 1, y: 0,
+          duration: 0.9,
           ease: 'power3.out',
+          force3D: true,
           scrollTrigger: {
             trigger: label,
             start: 'top 86%',
@@ -156,12 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (subtitle) {
       gsap.fromTo(subtitle,
-        { opacity: 0, y: 16, letterSpacing: '0.65em' },
+        { opacity: 0, y: 14 },
         {
-          opacity: 0.7, y: 0, letterSpacing: '0.38em',
-          duration: 1.2,
+          opacity: 0.7, y: 0,
+          duration: 1.0,
           ease: 'power3.out',
-          delay: 0.22,
+          delay: 0.2,
+          force3D: true,
           scrollTrigger: {
             trigger: label,
             start: 'top 86%',
@@ -173,18 +163,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* ──────────────────────────────────────────────────
-     4. RESTAURANT CARDS — stagger slide up
+     4. RESTAURANT CARDS
   ────────────────────────────────────────────────── */
   const cards = document.querySelectorAll('.restaurant-card');
   if (cards.length) {
     gsap.fromTo(cards,
-      { opacity: 0, y: 70 },
+      { opacity: 0, y: 60 },
       {
         opacity: 1,
         y: 0,
-        duration: 1.0,
+        duration: 0.9,
         ease: 'power3.out',
-        stagger: 0.15,
+        stagger: 0.12,
+        force3D: true,
         scrollTrigger: {
           trigger: '.restaurant-grid',
           start: 'top 78%',
@@ -195,18 +186,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ──────────────────────────────────────────────────
-     5. RESERVE — text slides from left, buttons from right
+     5. RESERVE
   ────────────────────────────────────────────────── */
   const reserveText = document.querySelector('#reserve > p');
   const reserveBtns = document.querySelector('.reserve-actions');
 
   if (reserveText) {
     gsap.fromTo(reserveText,
-      { opacity: 0, x: -60 },
+      { opacity: 0, x: -50 },
       {
         opacity: 1, x: 0,
-        duration: 1.1,
+        duration: 1.0,
         ease: 'power3.out',
+        force3D: true,
         scrollTrigger: {
           trigger: '#reserve',
           start: 'top 76%',
@@ -218,12 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (reserveBtns) {
     gsap.fromTo(reserveBtns,
-      { opacity: 0, x: 60 },
+      { opacity: 0, x: 50 },
       {
         opacity: 1, x: 0,
-        duration: 1.1,
+        duration: 1.0,
         ease: 'power3.out',
-        delay: 0.2,
+        delay: 0.18,
+        force3D: true,
         scrollTrigger: {
           trigger: '#reserve',
           start: 'top 76%',
@@ -234,27 +227,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ──────────────────────────────────────────────────
-     6. CHEF IMAGE — parallax zoom like #h1/#h2
+     6. CHEF IMAGE — parallax zoom
   ────────────────────────────────────────────────── */
   const chefImg = document.querySelector('.chef-img');
   if (chefImg) {
+    chefImg.style.willChange = 'transform';
     gsap.fromTo(chefImg,
       { scale: 1.0 },
       {
         scale: 1.09,
         ease: 'none',
+        force3D: true,
         scrollTrigger: {
           trigger: '#chef',
           start: 'top bottom',
           end:   'bottom top',
           scrub: 2.0,
+          invalidateOnRefresh: true,
         }
       }
     );
   }
 
   /* ──────────────────────────────────────────────────
-     7. RESTAURANTS HEADER — divider lines grow outward
+     7. RESTAURANTS HEADER dividers
   ────────────────────────────────────────────────── */
   const dividers = document.querySelectorAll('.divider-line');
   dividers.forEach((d, i) => {
@@ -264,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         scaleX: 1,
         duration: 1.0,
         ease: 'power2.out',
+        force3D: true,
         scrollTrigger: {
           trigger: '.restaurants-header',
           start: 'top 82%',
@@ -276,11 +273,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const restaurantsHeading = document.querySelector('.restaurants-header h2');
   if (restaurantsHeading) {
     gsap.fromTo(restaurantsHeading,
-      { opacity: 0, y: 20 },
+      { opacity: 0, y: 18 },
       {
         opacity: 0.8, y: 0,
         duration: 0.9,
         ease: 'power3.out',
+        force3D: true,
         scrollTrigger: {
           trigger: '.restaurants-header',
           start: 'top 82%',
@@ -290,4 +288,10 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  /* ── Clean up will-change after animations complete ── */
+  ScrollTrigger.addEventListener('refresh', () => {
+    document.querySelectorAll('[style*="will-change"]').forEach(el => {
+      setTimeout(() => { el.style.willChange = 'auto'; }, 2000);
+    });
+  });
 });
